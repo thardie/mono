@@ -275,7 +275,7 @@ typedef struct {
 #define HEADER_LENGTH 11
 
 #define MAJOR_VERSION 2
-#define MINOR_VERSION 45
+#define MINOR_VERSION 46
 
 typedef enum {
 	CMD_SET_VM = 1,
@@ -291,7 +291,8 @@ typedef enum {
 	CMD_SET_TYPE = 23,
 	CMD_SET_MODULE = 24,
 	CMD_SET_FIELD = 25,
-	CMD_SET_EVENT = 64
+	CMD_SET_EVENT = 64,
+	CMD_SET_POINTER = 65
 } CommandSet;
 
 typedef enum {
@@ -518,6 +519,10 @@ typedef enum {
 	CMD_STRING_REF_GET_LENGTH = 2,
 	CMD_STRING_REF_GET_CHARS = 3
 } CmdString;
+
+typedef enum {
+	CMD_POINTER_GET_VALUE = 1
+} CmdPointer;
 
 typedef enum {
 	CMD_OBJECT_REF_GET_TYPE = 1,
@@ -6326,6 +6331,8 @@ buffer_add_value_full (Buffer *buf, MonoType *t, void *addr, MonoDomain *domain,
 		
 		buffer_add_byte (buf, t->type);
 		buffer_add_long (buf, val);
+		if (CHECK_PROTOCOL_VERSION(2, 46))
+			buffer_add_typeid (buf, domain, mono_class_from_mono_type (t));
 		break;
 	}
 	handle_ref:
@@ -9992,6 +9999,34 @@ string_commands (int command, guint8 *p, guint8 *end, Buffer *buf)
 }
 
 static ErrorCode
+pointer_commands (int command, guint8 *p, guint8 *end, Buffer *buf)
+{
+	ErrorCode err;
+	gint64 addr;
+	MonoClass* klass;
+	MonoDomain* domain = NULL;
+
+	switch (command) {
+	case CMD_POINTER_GET_VALUE:
+		addr = decode_long (p, &p, end);
+		klass = decode_typeid (p, &p, end, &domain, &err);
+		if (err != ERR_NONE)
+			return err;
+
+		if (klass->byval_arg.type != MONO_TYPE_PTR)
+			return ERR_INVALID_ARGUMENT;
+
+		buffer_add_value (buf, &klass->element_class->byval_arg, (gpointer)addr, domain);
+
+		break;
+	default:
+		return ERR_NOT_IMPLEMENTED;
+	}
+
+	return ERR_NONE;
+}
+
+static ErrorCode
 object_commands (int command, guint8 *p, guint8 *end, Buffer *buf)
 {
 	ERROR_DECL (error);
@@ -10560,6 +10595,9 @@ debugger_thread (void *arg)
 			break;
 		case CMD_SET_STRING_REF:
 			err = string_commands (command, p, end, &buf);
+			break;
+		case CMD_SET_POINTER:
+			err = pointer_commands (command, p, end, &buf);
 			break;
 		case CMD_SET_OBJECT_REF:
 			err = object_commands (command, p, end, &buf);

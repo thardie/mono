@@ -420,7 +420,7 @@ namespace Mono.Debugger.Soft
 		 * with newer runtimes, and vice versa.
 		 */
 		internal const int MAJOR_VERSION = 2;
-		internal const int MINOR_VERSION = 45;
+		internal const int MINOR_VERSION = 46;
 
 		enum WPSuspendPolicy {
 			NONE = 0,
@@ -442,7 +442,8 @@ namespace Mono.Debugger.Soft
 			TYPE = 23,
 			MODULE = 24,
 			FIELD = 25,
-			EVENT = 64
+			EVENT = 64,
+			POINTER = 65
 		}
 
 		enum EventKind {
@@ -604,6 +605,10 @@ namespace Mono.Debugger.Soft
 			GET_VALUE = 1,
 			GET_LENGTH = 2,
 			GET_CHARS = 3
+		}
+
+		enum CmdPointer {
+			GET_VALUE = 1
 		}
 
 		enum CmdObjectRef {
@@ -845,9 +850,12 @@ namespace Mono.Debugger.Soft
 					return new ValueImpl { Type = etype, Value = ReadDouble () };
 				case ElementType.I:
 				case ElementType.U:
-				case ElementType.Ptr:
 					// FIXME: The client and the debuggee might have different word sizes
 					return new ValueImpl { Type = etype, Value = ReadLong () };
+				case ElementType.Ptr:
+					long value = ReadLong();
+					long pointerClass = ReadId();
+					return new ValueImpl {Type = etype, Klass = pointerClass, Value = value};
 				case ElementType.String:
 				case ElementType.SzArray:
 				case ElementType.Class:
@@ -2475,7 +2483,16 @@ namespace Mono.Debugger.Soft
 			for (int i = 0; i < length; ++i)
 				res [i] = (char)r.ReadShort ();
 			return res;
-		}			
+		}
+
+		/*
+		 * POINTERS
+		 */
+
+		internal ValueImpl Pointer_GetValue (long address, TypeMirror type)
+		{
+			return SendReceive (CommandSet.POINTER, (int)CmdPointer.GET_VALUE, new PacketWriter ().WriteLong (address).WriteId (type.Id)).ReadValue ();
+		}
 
 		/*
 		 * OBJECTS
