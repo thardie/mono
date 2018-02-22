@@ -32,23 +32,6 @@ void unity_mono_exit( int code )
 
 HANDLE unity_log_output = 0;
 
-void unity_mono_redirect_output( HANDLE handle )
-{
-	int fd;
-	DWORD written;
-//	int fd_copy;
-	unity_log_output = handle;	
-	fd = _open_osfhandle((intptr_t)handle, (_O_APPEND | _O_TEXT));
-	stdout->_file = fd;
-	_dup2(fd,_fileno(stdout));
-	//*stdout = *_fdopen(fd, "at");
-	
-	setvbuf(stdout, NULL, _IONBF, 0);
-	
-	//fprintf(stdout, "printf from mono\n");
-	//WriteFile(handle,"WriteFile from mono",16,&written,NULL);
-}
-
 HANDLE unity_mono_get_log_handle()
 {
 	return unity_log_output;

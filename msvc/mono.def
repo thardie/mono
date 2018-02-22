@@ -23,7 +23,6 @@ mono_loader_error_prepare_exception
 
 ;Unity Exports that add new functions created by Unity
 unity_mono_install_memory_callbacks
-unity_mono_redirect_output
 unity_mono_close_output
 unity_mono_method_is_inflated
 unity_mono_method_is_generic

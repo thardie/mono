@@ -24,9 +24,9 @@
 #include <valgrind/valgrind.h>
 #endif
 
-#ifdef MONO_DEBUGGER_SUPPORTED
-#include <libgc/include/libgc-mono-debugger.h>
-#endif
+//#ifdef MONO_DEBUGGER_SUPPORTED
+//#include <libgc/include/libgc-mono-debugger.h>
+//#endif
 
 typedef struct {
 	guint32 index;

@@ -32,12 +32,6 @@ typedef int pid_t;
 #define GINT_TO_POINTER(v)     ((gpointer)(intptr_t) (v))
 #define GUINT_TO_POINTER(v)    ((gpointer)(intptr_t) (v))
 
-#define INT32_MAX 2147483647
-#define INT32_MIN (~ INT32_MAX)
-#define INT64_MAX 9223372036854775807i64
-#define INT64_MIN (~INT64_MAX)
-#define UINT32_MAX 0xffffffffU
-
 #define STDOUT_FILENO (int)(intptr_t)stdout
 #define STDERR_FILENO (int)(intptr_t)stderr
 

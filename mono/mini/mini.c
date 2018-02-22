@@ -2858,8 +2858,10 @@ mono_add_seq_point (MonoCompile *cfg, MonoBasicBlock *bb, MonoInst *ins, int nat
 {
 	ins->inst_offset = native_offset;
 	g_ptr_array_add (cfg->seq_points, ins);
-	bb->seq_points = g_slist_prepend_mempool (cfg->mempool, bb->seq_points, ins);
-	bb->last_seq_point = ins;
+	if (bb) {
+		bb->seq_points = g_slist_prepend_mempool(cfg->mempool, bb->seq_points, ins);
+		bb->last_seq_point = ins;
+	}
 }
 
 static void
@@ -3102,13 +3104,25 @@ mono_save_seq_point_info (MonoCompile *cfg)
 
 			if (!(ins->flags & MONO_INST_SINGLE_STEP_LOC))
 				continue;
+			if (ins->inst_offset == SEQ_POINT_NATIVE_OFFSET_DEAD_CODE)
+				continue;
+
 
 			if (last != NULL) {
 				/* Link with the previous seq point in the same bb */
 				next [last->backend.size] = g_slist_append (next [last->backend.size], GUINT_TO_POINTER (ins->backend.size));
 			} else {
 				/* Link with the last bb in the previous bblocks */
-				get_basic_block_seq_points(next, bb, ins, 0);
+				/*
+				* FIXME: What if the prev bb doesn't have a seq point, but
+				* one of its predecessors has ?
+				*/
+				for (i = 0; i < bb->in_count; ++i) {
+					in_bb = bb->in_bb[i];
+
+					if (in_bb->last_seq_point)
+						next[in_bb->last_seq_point->backend.size] = g_slist_append(next[in_bb->last_seq_point->backend.size], GUINT_TO_POINTER(ins->backend.size));
+				}
 			}
 
 			last = ins;
@@ -4987,7 +5001,6 @@ SIG_HANDLER_SIGNATURE (mono_sigsegv_signal_handler)
 {
 	MonoJitInfo *ji;
 	MonoJitTlsData *jit_tls = TlsGetValue (mono_jit_tls_id);
-	gpointer ip;
 
 	GET_CONTEXT;
 
@@ -5015,22 +5028,7 @@ SIG_HANDLER_SIGNATURE (mono_sigsegv_signal_handler)
 		mono_handle_native_sigsegv (SIGSEGV, ctx);
 	}
 
-	ip = mono_arch_ip_from_context (ctx);
-#ifdef _WIN64
-	/* Sometimes on win64 we get null IP, but the previous frame is a valid managed frame */
-	/* So pop and try again */
-	if (!ip && ctx)
-	{
-		MonoContext *context = (MonoContext*)ctx;
-		gpointer *sp = context->rsp;
-		if (sp)
-		{
-			ip = context->rip = *sp;
-			context->rsp += sizeof(gpointer);
-		}
-	}
-#endif
-	ji = mono_jit_info_table_find (mono_domain_get (), ip);
+	ji = mono_jit_info_table_find(mono_domain_get(), mono_arch_ip_from_context(ctx));
 
 #ifdef MONO_ARCH_SIGSEGV_ON_ALTSTACK
 	if (mono_handle_soft_stack_ovf (jit_tls, ji, ctx, (guint8*)info->si_addr))
@@ -5315,6 +5313,23 @@ mini_free_jit_domain_info (MonoDomain *domain)
 	domain->runtime_info = NULL;
 }
 
+static void
+check_environment_options(void)
+{
+	char *args;
+
+	/* Check additional environment variables for things
+	* normally done through command-line options. */
+	if ((args = getenv("MONO_PROFILE")) != NULL)
+		mono_profiler_load(args);
+
+	if ((args = getenv("MONO_DEBUGGER_AGENT")) != NULL) {
+		debug_options.mdb_optimizations = TRUE;
+		mono_debugger_agent_parse_options(args);
+		mono_debug_init(MONO_DEBUG_FORMAT_MONO);
+	}
+}
+
 MonoDomain *
 mini_init (const char *filename, const char *runtime_version)
 {
@@ -5331,8 +5346,11 @@ mini_init (const char *filename, const char *runtime_version)
 #endif
 
 	/* Happens when using the embedding interface */
-	if (!default_opt_set)
-		default_opt = mono_parse_default_optimizations (NULL);
+	if (!default_opt_set) {
+		default_opt = mono_parse_default_optimizations(NULL);
+		check_environment_options();
+		default_opt_set = TRUE;
+	}
 
 	InitializeCriticalSection (&jit_mutex);
 
@@ -5872,6 +5890,8 @@ mono_set_defaults (int verbose_level, guint32 opts)
 {
 	mini_verbose = verbose_level;
 	default_opt = opts;
+	if (!default_opt_set)
+		check_environment_options();
 	default_opt_set = TRUE;
 }
 

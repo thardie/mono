@@ -546,11 +546,14 @@ mono_debug_symfile_lookup_method (MonoDebugHandle *handle, MonoMethod *method)
 	MonoSymbolFileMethodEntry *first_ie, *ie;
 	MonoDebugMethodInfo *minfo;
 	MonoSymbolFile *symfile = handle->symfile;
+	MonoImage *image;
 
 	if (!symfile->method_hash)
 		return NULL;
 
-	if (handle->image != mono_class_get_image (mono_method_get_class (method)))
+	image = mono_class_get_image(mono_method_get_class(method));
+
+	if (strcmp(handle->image->guid, image->guid) != 0) // images can be loaded multiple times. re-use symbols if GUIDs match
 		return NULL;
 
 	mono_debugger_lock ();

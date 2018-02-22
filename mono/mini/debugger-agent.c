@@ -6442,12 +6442,15 @@ type_commands_internal (int command, MonoClass *klass, MonoDomain *domain, guint
 		files = g_ptr_array_new ();
 
 		while ((method = mono_class_get_methods (klass, &iter))) {
+			DEBUG(1, fprintf(log_file, "[dbg] \tLooking for func %s.%s\n", klass->name_space, klass->name));
 			MonoDebugMethodInfo *minfo = mono_debug_lookup_method (method);
 
 			if (minfo) {
 				mono_debug_symfile_get_line_numbers (minfo, &source_file, NULL, NULL, NULL);
 				if (!source_file)
 					continue;
+
+				DEBUG(1, fprintf(log_file, "[dbg] \tSource: %s func: %s\n", source_file, method->name));
 
 				for (i = 0; i < files->len; ++i)
 					if (!strcmp (g_ptr_array_index (files, i), source_file))

@@ -134,11 +134,22 @@
 /* Deal with Microsoft C compiler differences */
 #ifdef _MSC_VER
 
+#include <math.h>
+
+#if _MSC_VER < 1800 /* VS 2013 */
+#define strtoull _strtoui64
+#endif
+
 #include <float.h>
-#define isnan(x)	_isnan(x)
-#define trunc(x)	(((x) < 0) ? ceil((x)) : floor((x)))
-#define isinf(x)	(_isnan(x) ? 0 : (_fpclass(x) == _FPCLASS_NINF) ? -1 : (_fpclass(x) == _FPCLASS_PINF) ? 1 : 0)
-#define isnormal(x)	_finite(x)
+#if _MSC_VER < 1900 /* VS 2015 */
+#define trunc(x)        (((x) < 0) ? ceil((x)) : floor((x)))
+#endif
+#if _MSC_VER < 1800 /* VS 2013 */
+#define isnan(x)        _isnan(x)
+#define isinf(x)        (_isnan(x) ? 0 : (_fpclass(x) == _FPCLASS_NINF) ? -1 : (_fpclass(x) == _FPCLASS_PINF) ? 1 : 0)
+#define isnormal(x)     _finite(x)
+#endif
+
 
 #define popen		_popen
 #define pclose		_pclose
